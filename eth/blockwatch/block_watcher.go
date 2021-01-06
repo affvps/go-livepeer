@@ -120,7 +120,7 @@ func (w *Watcher) Watch(ctx context.Context) error {
 			ticker.Stop()
 			return nil
 		case <-ticker.C:
-			if err := w.pollNextBlock(); err != nil {
+			if err := w.syncToLatestBlock(); err != nil {
 				glog.Errorf("blockwatch.Watcher error encountered - trying again on next polling interval err=%v", err)
 			}
 		}
@@ -144,6 +144,25 @@ func (w *Watcher) GetLatestBlock() (*MiniHeader, error) {
 // particularly performant and therefore should only be used for debugging and testing purposes.
 func (w *Watcher) InspectRetainedBlocks() ([]*MiniHeader, error) {
 	return w.stack.Inspect()
+}
+
+func (w *Watcher) syncToLatestBlock() error {
+	lastBlock, err := w.client.HeaderByNumber(nil)
+	if err != nil {
+		return err
+	}
+
+	for {
+		latestHeader, err := w.stack.Peek()
+		if err != nil {
+			return err
+		}
+		if lastBlock.Number.Cmp(latestHeader.Number) == 0 {
+			break
+		}
+		w.pollNextBlock()
+	}
+	return nil
 }
 
 // pollNextBlock polls for the next block header to be added to the block stack.
