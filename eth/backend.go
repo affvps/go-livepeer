@@ -105,6 +105,19 @@ func (b *backend) SendTransaction(ctx context.Context, tx *types.Transaction) er
 	return nil
 }
 
+func (b *backend) SuggestGasPrice(ctx context.Context) (*big.Int, error) {
+	gp, err := b.Client.SuggestGasPrice(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	if b.maxGasPrice != nil && gp.Cmp(b.maxGasPrice) >= 0 {
+		return nil, fmt.Errorf("current gas price exceeds maximum gas price")
+	}
+
+	return gp, nil
+}
+
 func (b *backend) SetMaxGasPrice(gp *big.Int) {
 	b.Lock()
 	defer b.Unlock()
