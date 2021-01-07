@@ -116,8 +116,6 @@ type LivepeerEthClient interface {
 	CheckTx(*types.Transaction) error
 	ReplaceTransaction(*types.Transaction, string, *big.Int) (*types.Transaction, error)
 	Sign([]byte) ([]byte, error)
-	GetGasInfo() (uint64, *big.Int)
-	SetGasInfo(uint64, *big.Int) error
 }
 
 type client struct {
@@ -144,13 +142,10 @@ type client struct {
 	*contracts.MinterSession
 	*contracts.LivepeerTokenFaucetSession
 
-	gasLimit uint64
-	gasPrice *big.Int
-
 	txTimeout time.Duration
 }
 
-func NewClient(accountAddr ethcommon.Address, keystoreDir string, eth *ethclient.Client, controllerAddr ethcommon.Address, txTimeout time.Duration) (LivepeerEthClient, error) {
+func NewClient(accountAddr ethcommon.Address, keystoreDir, password string, eth *ethclient.Client, controllerAddr ethcommon.Address, txTimeout time.Duration, maxGasPrice *big.Int) (LivepeerEthClient, error) {
 	chainID, err := eth.ChainID(context.Background())
 	if err != nil {
 		return nil, err
@@ -162,6 +157,7 @@ func NewClient(accountAddr ethcommon.Address, keystoreDir string, eth *ethclient
 	if err != nil {
 		return nil, err
 	}
+	backend.SetMaxGasPrice(maxGasPrice)
 
 	am, err := NewAccountManager(accountAddr, keystoreDir, signer)
 	if err != nil {
@@ -183,25 +179,6 @@ func (c *client) Setup(password string, gasLimit uint64, gasPrice *big.Int) erro
 	}
 
 	return c.SetGasInfo(gasLimit, gasPrice)
-}
-
-func (c *client) SetGasInfo(gasLimit uint64, gasPrice *big.Int) error {
-	opts, err := c.accountManager.CreateTransactOpts(gasLimit, gasPrice)
-	if err != nil {
-		return err
-	}
-
-	if err := c.setContracts(opts); err != nil {
-		return err
-	} else {
-		c.gasLimit = gasLimit
-		c.gasPrice = gasPrice
-		return nil
-	}
-}
-
-func (c *client) GetGasInfo() (gasLimit uint64, gasPrice *big.Int) {
-	return c.gasLimit, c.gasPrice
 }
 
 func (c *client) setContracts(opts *bind.TransactOpts) error {

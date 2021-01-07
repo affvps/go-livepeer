@@ -1140,8 +1140,13 @@ func (s *LivepeerServer) cliWebServerHandlers(bindAddr string) *http.ServeMux {
 		glog.Infof("Call to reward successful")
 	})
 
-	mux.HandleFunc("/gasPrice", func(w http.ResponseWriter, r *http.Request) {
-		_, gprice := s.LivepeerNode.Eth.GetGasInfo()
+	mux.HandleFunc("/maxGasPrice", func(w http.ResponseWriter, r *http.Request) {
+		b, err := s.LivepeerNode.Eth.Backend()
+		if err != nil {
+			respondWith400(w, err.Error())
+			return
+		}
+		gprice := b.MaxGasPrice()
 		if gprice == nil {
 			w.Write([]byte("0"))
 		} else {
@@ -1149,7 +1154,7 @@ func (s *LivepeerServer) cliWebServerHandlers(bindAddr string) *http.ServeMux {
 		}
 	})
 
-	mux.HandleFunc("/setGasPrice", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/setMaxGasPrice", func(w http.ResponseWriter, r *http.Request) {
 		amount := r.FormValue("amount")
 		if amount == "" {
 			glog.Errorf("Need to set amount")
@@ -1164,11 +1169,12 @@ func (s *LivepeerServer) cliWebServerHandlers(bindAddr string) *http.ServeMux {
 		if amount == "0" {
 			gprice = nil
 		}
-
-		glimit, _ := s.LivepeerNode.Eth.GetGasInfo()
-		if err := s.LivepeerNode.Eth.SetGasInfo(glimit, gprice); err != nil {
-			glog.Errorf("Error setting price info: %v", err)
+		b, err := s.LivepeerNode.Eth.Backend()
+		if err != nil {
+			respondWith400(w, err.Error())
+			return
 		}
+		b.SetMaxGasPrice(gprice)
 	})
 
 	mux.Handle("/currentBlock", currentBlockHandler(s.LivepeerNode.Database))

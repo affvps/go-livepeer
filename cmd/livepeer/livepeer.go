@@ -134,8 +134,7 @@ func main() {
 	ethOrchAddr := flag.String("ethOrchAddr", "", "ETH address of an on-chain registered orchestrator")
 	ethUrl := flag.String("ethUrl", "", "Ethereum node JSON-RPC URL")
 	ethController := flag.String("ethController", "", "Protocol smart contract address")
-	gasLimit := flag.Int("gasLimit", 0, "Gas limit for ETH transactions")
-	gasPrice := flag.Int("gasPrice", 0, "Gas price for ETH transactions")
+	maxGasPrice := flag.Int("maxGasPrice", 0, "Maximum gas price for ETH transactions")
 	initializeRound := flag.Bool("initializeRound", false, "Set to true if running as a transcoder and the node should automatically initialize new rounds")
 	ticketEV := flag.String("ticketEV", "1000000000000", "The expected value for PM tickets")
 	// Broadcaster max acceptable ticket EV
@@ -378,20 +377,14 @@ func main() {
 			return
 		}
 
-		client, err := eth.NewClient(ethcommon.HexToAddress(*ethAcctAddr), keystoreDir, backend, ethcommon.HexToAddress(*ethController), EthTxTimeout)
-		if err != nil {
-			glog.Errorf("Failed to create client: %v", err)
-			return
+		var bigMaxGasPrice *big.Int
+		if *maxGasPrice > 0 {
+			bigMaxGasPrice = big.NewInt(int64(*maxGasPrice))
 		}
 
-		var bigGasPrice *big.Int
-		if *gasPrice > 0 {
-			bigGasPrice = big.NewInt(int64(*gasPrice))
-		}
-
-		err = client.Setup(*ethPassword, uint64(*gasLimit), bigGasPrice)
+		client, err := eth.NewClient(ethcommon.HexToAddress(*ethAcctAddr), keystoreDir, *ethPassword, backend, ethcommon.HexToAddress(*ethController), EthTxTimeout, bigMaxGasPrice)
 		if err != nil {
-			glog.Errorf("Failed to setup client: %v", err)
+			glog.Errorf("Failed to create Livepeer Ethereum client: %v", err)
 			return
 		}
 

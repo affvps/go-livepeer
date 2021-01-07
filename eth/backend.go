@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"math/big"
 	"strings"
+	"sync"
 
 	ethereum "github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi"
@@ -40,6 +41,8 @@ type Backend interface {
 	ethereum.LogFilterer
 	ethereum.ChainReader
 	ChainID(ctx context.Context) (*big.Int, error)
+	MaxGasPrice() *big.Int
+	SetMaxGasPrice(gp *big.Int)
 }
 
 type backend struct {
@@ -47,6 +50,9 @@ type backend struct {
 	abiMap       map[string]*abi.ABI
 	nonceManager *NonceManager
 	signer       types.Signer
+
+	sync.Mutex
+	maxGasPrice *big.Int
 }
 
 func NewBackend(client *ethclient.Client, signer types.Signer) (Backend, error) {
@@ -56,10 +62,10 @@ func NewBackend(client *ethclient.Client, signer types.Signer) (Backend, error) 
 	}
 
 	return &backend{
-		client,
-		abiMap,
-		NewNonceManager(client),
-		signer,
+		Client:       client,
+		abiMap:       abiMap,
+		nonceManager: NewNonceManager(client),
+		signer:       signer,
 	}, nil
 }
 
@@ -97,6 +103,18 @@ func (b *backend) SendTransaction(ctx context.Context, tx *types.Transaction) er
 	glog.Infof("\n%vEth Transaction%v\n\nInvoking transaction: \"%v\". Inputs: \"%v\"  Hash: \"%v\". \n\n%v\n", strings.Repeat("*", 30), strings.Repeat("*", 30), txLog.method, txLog.inputs, tx.Hash().String(), strings.Repeat("*", 75))
 
 	return nil
+}
+
+func (b *backend) SetMaxGasPrice(gp *big.Int) {
+	b.Lock()
+	defer b.Unlock()
+	b.maxGasPrice = gp
+}
+
+func (b *backend) MaxGasPrice() *big.Int {
+	b.Lock()
+	defer b.Unlock()
+	return b.maxGasPrice
 }
 
 type txLog struct {
