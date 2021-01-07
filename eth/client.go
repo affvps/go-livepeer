@@ -42,7 +42,6 @@ var (
 )
 
 type LivepeerEthClient interface {
-	Setup(password string, gasLimit uint64, gasPrice *big.Int) error
 	Account() accounts.Account
 	Backend() (Backend, error)
 
@@ -164,21 +163,16 @@ func NewClient(accountAddr ethcommon.Address, keystoreDir, password string, eth 
 		return nil, err
 	}
 
+	if err := am.Unlock(password); err != nil {
+		return nil, err
+	}
+
 	return &client{
 		accountManager: am,
 		backend:        backend,
 		controllerAddr: controllerAddr,
 		txTimeout:      txTimeout,
 	}, nil
-}
-
-func (c *client) Setup(password string, gasLimit uint64, gasPrice *big.Int) error {
-	err := c.accountManager.Unlock(password)
-	if err != nil {
-		return err
-	}
-
-	return c.SetGasInfo(gasLimit, gasPrice)
 }
 
 func (c *client) setContracts(opts *bind.TransactOpts) error {
@@ -579,13 +573,7 @@ func (c *client) Vote(pollAddr ethcommon.Address, choiceID *big.Int) (*types.Tra
 		return nil, err
 	}
 
-	gl, gp := c.GetGasInfo()
-	opts, err := c.accountManager.CreateTransactOpts(gl, gp)
-	if err != nil {
-		return nil, err
-	}
-
-	return poll.Vote(opts, choiceID)
+	return poll.Vote(nil, choiceID)
 }
 
 func (c *client) Reward() (*types.Transaction, error) {
