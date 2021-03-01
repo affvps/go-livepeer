@@ -30,7 +30,7 @@ func main() {
 	flag.CommandLine = flag.NewFlagSet(os.Args[0], flag.ExitOnError)
 
 	in := flag.String("in", "", "Input m3u8 manifest file")
-	liveMode := flag.Bool("liveMode", true, "Simulate live stream")
+	live := flag.Bool("live", true, "Simulate live stream")
 	concurrentSessions := flag.Int("concurrentSessions", 1, "# of concurrent transcode sessions")
 	segs := flag.Int("segs", 0, "Maximum # of segments to transcode (default all)")
 	transcodingOptions := flag.String("transcodingOptions", "P240p30fps16x9,P360p30fps16x9,P720p30fps16x9", "Transcoding options for broadcast job, or path to json config")
@@ -76,7 +76,7 @@ func main() {
 		{"Source File", *in},
 		{"Transcoding Options", *transcodingOptions},
 		{"Concurrent Sessions", fmt.Sprintf("%v", *concurrentSessions)},
-		{"Live Mode", fmt.Sprintf("%v", *liveMode)},
+		{"Live Mode", fmt.Sprintf("%v", *live)},
 	}
 
 	table.SetAlignment(tablewriter.ALIGN_LEFT)
@@ -152,8 +152,8 @@ func main() {
 				}
 				mu.Unlock()
 				iterEnd := time.Now()
-				segDur := time.Duration(int64(v.Duration*1000)) * time.Millisecond
-				if *liveMode {
+				segDur := time.Duration(v.Duration * float64(time.Second))
+				if *live {
 					time.Sleep(segDur - iterEnd.Sub(iterStart))
 				}
 			}
@@ -163,6 +163,9 @@ func main() {
 		time.Sleep(300 * time.Millisecond)
 	}
 	wg.Wait()
+	if segCount == 0 || srcDur == 0.0 {
+		glog.Fatal("Input manifest has no segments or total duration is 0s")
+	}
 	statsTable := tablewriter.NewWriter(os.Stderr)
 	stats := [][]string{
 		{"Concurrent Sessions", fmt.Sprintf("%v", *concurrentSessions)},
